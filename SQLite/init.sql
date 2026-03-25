@@ -46,6 +46,23 @@ CREATE TABLE NBAGameStats (
     FOREIGN KEY (PID) REFERENCES NBAPlayer(PID)
 );
 
+CREATE TABLE NBAPlayerSeasonStats (
+    PID INTEGER,
+    gamesPlayed INTEGER,
+    avgMinsPerGame REAL,
+    avgPointsPerGame REAL,
+    avgReboundsPerGame REAL,
+    AvgAssistsPerGame REAL,
+    AvgStealsPerGame REAL,
+    AvgBlocksPerGame REAL,
+    AvgTurnoversPerGame REAL,
+    AvgFgPercentage REAL,
+    AvgFtPercentage REAL,
+    AvgThreePercentage REAL,
+    PRIMARY KEY (PID),
+    FOREIGN KEY (PID) REFERENCES NBAPlayer(PID)
+);
+
 
 -- APP TABLES
 
