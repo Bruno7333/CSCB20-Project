@@ -36,6 +36,11 @@ button {
     border-radius: 8px;
 }
 
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
 .btn-group {
     display: flex;
     flex-direction: column;
