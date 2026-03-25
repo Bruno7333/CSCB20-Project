@@ -3,9 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>B20 Project</title>
 </head>
 <body>
-    <p>you've logged in</p>
+    <h1>My Leagues</h1>
+
+    <ul>
+    {% for league in leagues %}
+        <li>{{ league.name }} (ID: {{ league.id }})</li>
+    {% endfor %}
+    </ul>
+
+    <hr>
+    <h3>Create New League</h3>
+    <form action="/create_league" method="POST">
+        <input type="text" name="leagueName" placeholder="League Name" required>
+        <select name="draftType">
+            <option value="Auction">Auction</option>
+        </select>
+        <button type="submit">Create League</button>
+    </form>
 </body>
 </html>

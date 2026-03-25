@@ -28,7 +28,33 @@ def register_page():
 
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
-    return render_template('dashboard.html')
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    # select leagues
+    cursor.execute("SELECT LID as id, leagueName as name FROM PlayerLeague")
+    leagues = cursor.fetchall()
+    conn.close()
+
+    return render_template('dashboard.html', leagues=leagues)
+
+@app.route('/create_league', methods=['POST'])
+def create_league():
+    league_name = request.form['leagueName']
+    draft_type = request.form['draftType']
+    owner_id = 1
+
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO PlayerLeague (leagueName, draftType, ownerAccount, status) VALUES (?, ?, ?, 'initial')",
+        (league_name, draft_type, owner_id)
+    )
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('dashboard'))
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -61,7 +87,7 @@ def login():
     conn.close()
 
     if user:
-        return render_template(dashboard.html)
+        return redirect(url_for('dashboard'))
     else:
         return "Login failed. Check your credentials."
 
