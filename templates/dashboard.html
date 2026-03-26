@@ -4,31 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>B20 Project</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>My Leagues</h1>
+    <div class="dashboard-wrapper">
+        <div class="leagues-section">
+            <h2>My Leagues</h2>
+            <ul>
+            {% for league in leagues %}
+                <li><a href="{{ url_for('league', league_id=league.id )}}">{{ league.name }} (ID: {{ league.id }})</a></li>
+            {% endfor %}
+            </ul>
+        </div>
 
-    <ul>
-    {% for league in leagues %}
-        <li><a href="{{ url_for('league', league_id=league.id )}}">{{ league.name }} (ID: {{ league.id }})</a></li>
-    {% endfor %}
-    </ul>
+        <div class="forms-section">
+            <div class="create-section">
+                <h3>Create New League</h3>
+                <form action="/create_league" method="POST">
+                    <input type="text" name="leagueName" placeholder="League Name" required>
+                    <select name="draftType">
+                        <option value="Auction">Auction</option>
+                        <option value="Snake">Snake</option>
+                    </select>
+                    <button type="submit" class="login-btn">Create League</button>
+                </form>
+            </div>
 
-    <hr>
-    <h3>Create New League</h3>
-    <form action="/create_league" method="POST">
-        <input type="text" name="leagueName" placeholder="League Name" required>
-        <select name="draftType">
-            <option value="Auction">Auction</option>
-            <option value="Snake">Snake</option>
-        </select>
-        <button type="submit">Create League</button>
-    </form>
+            <hr>
 
-        <h4>Join League</h4>
-    <form action="/join_league" method="POST">
-        <input type="text" name="leagueID" placeholder="League Join Code" required>
-        <button type="submit">Join League</button>
-    </form>
+            <div class="join-section">
+                <h4>Join League</h4>
+                <form action="/join_league" method="POST">
+                    <input type="text" name="leagueID" placeholder="League Join Code" required>
+                    <button type="submit" class="register-btn">Join League</button>
+                </form>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
