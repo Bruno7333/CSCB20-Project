@@ -1,5 +1,6 @@
 from flask import Flask, request, redirect, url_for, render_template, session
 import sqlite3
+import random
 
 app = Flask(__name__)
 app.secret_key = 'lebron-james-king-of-basketball'
@@ -34,7 +35,7 @@ def league(league_id):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT LID as id, leagueName FROM PlayerLeague WHERE LID = ?", 
+        "SELECT LID as id, leagueName FROM PlayerLeague WHERE LID = ?",
         (league_id,)
         )
     league = cursor.fetchone()
@@ -59,7 +60,7 @@ def dashboard():
     # select leagues
     cursor.execute(
         "SELECT pl.LID as id, pl.leagueName as name FROM PlayerLeague pL JOIN PlayerTeam pt ON pl.LID = pt.LID WHERE pt.accountId = ?",
-        (session.get('user_id'),)       
+        (session.get('user_id'),)
         )
     leagues = cursor.fetchall()
     conn.close()
@@ -74,15 +75,44 @@ def create_league():
 
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
+
+    while True:
+        new_id = random.randint(10000000, 99999999)
+        cursor.execute("SELECT 1 FROM PlayerLeague WHERE LID = ?", (new_id,))
+        if not cursor.fetchone():
+            new_league_id = new_id
+            break
+
+
     cursor.execute(
-        "INSERT INTO PlayerLeague (leagueName, draftType, ownerAccount, status) VALUES (?, ?, ?, 'initial')",
-        (league_name, draft_type, owner_id)
+        "INSERT INTO PlayerLeague (LID, leagueName, draftType, ownerAccount, status) VALUES (?, ?, ?, ?, 'initial')",
+        (new_league_id, league_name, draft_type, owner_id)
     )
-    new_league_id = cursor.lastrowid
+
     cursor.execute(
         "INSERT INTO PlayerTeam (LID, accountID, teamName) VALUES (?, ?, ?)",
         (new_league_id, owner_id, "My Team")
     )
+
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('dashboard'))
+
+@app.route('/join_league', methods=['POST'])
+def Join_league():
+    league_id = request.form['leagueID']
+    user_id = session.get('user_id')
+
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+
+    cursor.execute(
+        "INSERT INTO PlayerTeam (LID, accountID, teamName) VALUES (?, ?, ?)",
+        (league_id, user_id, "My Team")
+    )
+
     conn.commit()
     conn.close()
 

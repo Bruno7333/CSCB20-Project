@@ -20,8 +20,15 @@
         <input type="text" name="leagueName" placeholder="League Name" required>
         <select name="draftType">
             <option value="Auction">Auction</option>
+            <option value="Snake">Snake</option>
         </select>
         <button type="submit">Create League</button>
+    </form>
+
+        <h4>Join League</h4>
+    <form action="/join_league" method="POST">
+        <input type="text" name="leagueID" placeholder="League Join Code" required>
+        <button type="submit">Join League</button>
     </form>
 </body>
 </html>
