@@ -10,7 +10,7 @@
 
     <ul>
     {% for league in leagues %}
-        <li>{{ league.name }} (ID: {{ league.id }})</li>
+        <li><a href="{{ url_for('league', league_id=league.id )}}">{{ league.name }} (ID: {{ league.id }})</a></li>
     {% endfor %}
     </ul>
 

@@ -8,6 +8,10 @@
 <body>
     <h1>{{ league.name }}</h1>
     <p>League ID: {{ league.id }}</p>
-
+    <ul>
+        {% for member in members %}
+            <li>{{ member.name }}, {{member.team_name}}</li>
+        {% endfor %}
+    </ul>
 </body>
 </html>
