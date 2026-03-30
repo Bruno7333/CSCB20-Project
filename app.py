@@ -230,6 +230,16 @@ def login():
     else:
         return "Login failed. Check your credentials."
     
+@app.route('/team/<int:league_id>')
+def team(league_id):
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    query = """SELECT 
+                """ #finish later
+    return render_template("team.html")
+    
 def compute_player_score(stats):
     if not stats:
         return 0
