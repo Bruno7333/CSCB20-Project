@@ -198,6 +198,7 @@ def login():
     # Use PlayerAccount table SAFE :)
     query = """SELECT * FROM PlayerAccount
                 WHERE username = ? AND password = ?"""
+
     cursor.execute(query, (username, password))
     user = cursor.fetchone()
     conn.close()
