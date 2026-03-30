@@ -156,7 +156,6 @@ hr {
     align-items: flex-start;
 }
 
-/* Ensure the form spans the remaining width */
 form[action*="league"] {
     flex: 1;
     display: flex;
