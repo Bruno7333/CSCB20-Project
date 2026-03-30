@@ -1,3 +1,4 @@
+/* General */
 body {
     font-family: sans-serif;
     display: flex;
@@ -19,6 +20,12 @@ h2 {
     margin-bottom: 2vh;
 }
 
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* Form */
 input {
     width: 100%;
     padding: 0.5rem;
@@ -36,11 +43,7 @@ button {
     border-radius: 8px;
 }
 
-button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
-}
-
+/* Index */
 .btn-group {
     display: flex;
     flex-direction: column;
@@ -55,21 +58,21 @@ button:disabled {
     display: block;
 }
 
-.login-btn { background-color: #3a618a; }
-.login { background-color: #3a618a; }
+.login-btn, .login { background-color: #3a618a; }
 .register-btn { background-color: #46b15f; }
 
+/* Login, Register */
 .footer {
     text-align: center;
     margin-top: 1rem;
     font-size: 0.9rem;
 }
 
+/* Dashboard */
 .dashboard-wrapper {
     display: flex;
     gap: 2rem;
     align-items: stretch;
-
 }
 
 .leagues-section, .forms-section {
@@ -115,4 +118,116 @@ hr {
     border: 0;
     border-top: 1px solid #eee;
     margin: 1rem 0;
+}
+
+/* League */
+.league-container {
+    padding: 2rem;
+    width: 100%;
+    max-width: 1200px;
+}
+
+.league-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    border: 1px solid #ccc;
+}
+
+.league-header h1 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.league-info-group {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.league-main-content {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+
+.members-bar, .player-search-section {
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+.members-sidebar {
+    width: 250px;
+}
+
+.player-search-section {
+    flex: 1;
+}
+
+.player-grid {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.player-card {
+    background: #f4f4f4;
+    padding: 1rem;
+    border-radius: 4px;
+    text-align: center;
+    border: 1px solid #eee;
+}
+
+.start-btn {
+    width: auto;
+    padding: 0.4rem 1rem;
+    background-color: #46b15f;
+}
+
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: bold;
+}
+
+.status-initial {
+    background-color: #e3f2fd;
+    color: #1976d2;
+}
+
+.status-draft {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+.dashboard-link {
+    color: #3a618a;
+    text-decoration: none;
+    margin-left: 1rem;
+}
+
+.member-list {
+    margin-top: 1rem;
+}
+
+.member-item {
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.member-team {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.player-search-input {
+    margin-bottom: 0;
 }

@@ -37,12 +37,12 @@ def league(league_id):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute(
-        """SELECT LID as id, leagueName
+        """SELECT LID as id, leagueName, status, ownerAccount
             FROM PlayerLeague
             WHERE LID = ?""",
         (league_id,)
         )
-    league = cursor.fetchone()
+    league_data = cursor.fetchone()
     cursor.execute(
         """SELECT pt.teamName as team_name, pa.username as name
             FROM PlayerTeam pt
@@ -53,10 +53,32 @@ def league(league_id):
     members = cursor.fetchall()
     conn.close()
 
-    if league is None:
+    if league_data is None:
         return redirect(url_for('dashboard'))
 
-    return render_template("league.html", league=league, members=members)
+    return render_template("league.html", league=league_data, members=members)
+
+@app.route("/start_league/<int:league_id>", methods=['POST'])
+def start_league(league_id):
+    owner_id = session.get('user_id')
+
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    # Verify ownership before starting
+    cursor.execute(
+        "SELECT 1 FROM PlayerLeague WHERE LID = ? AND ownerAccount = ?",
+        (league_id, owner_id)
+    )
+    if cursor.fetchone():
+        cursor.execute(
+            "UPDATE PlayerLeague SET status = 'started' WHERE LID = ?",
+            (league_id,)
+        )
+        conn.commit()
+
+    conn.close()
+    return redirect(url_for('league', league_id=league_id))
 
 # Dashboard load function
 @app.route('/dashboard', methods=['GET'])

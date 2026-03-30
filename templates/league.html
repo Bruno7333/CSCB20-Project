@@ -3,15 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>B20 Project</title>
+    <title>League - {{ league.leagueName }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>{{ league.name }}</h1>
-    <p>League ID: {{ league.id }}</p>
-    <ul>
-        {% for member in members %}
-            <li>{{ member.name }}, {{member.team_name}}</li>
-        {% endfor %}
-    </ul>
+    <div class="league-container">
+        <div class="league-header">
+            <div class="league-info-group">
+                <h1>{{ league.leagueName }}</h1>
+                <p class="league-id"><strong>ID:</strong> {{ league.id }}</p>
+                <div class="status">
+                    <strong>Status:</strong>
+                    {% if league.status == 'initial' %}
+                        <span class="status-badge status-initial">Initial</span>
+                    {% else %}
+                        <span class="status-badge status-draft">In Draft</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="header-things">
+                {% if league.status == 'initial' and session.get('user_id') == league.ownerAccount %}
+                        <button type="submit" class="start-btn">Start League</button>
+                {% endif %}
+                <a href="{{ url_for('dashboard') }}" class="dashboard-link">To Dashboard</a>
+            </div>
+        </div>
+
+        <div class="league-main-content">
+            <!-- members-->
+            <div class="members-bar">
+                <h3>League Members</h3>
+                <div class="member-list">
+                    {% for member in members %}
+                        <div class="member-item">
+                            <span><strong>{{ member.name }}</strong></span>
+                            <span class="member-team">{{ member.team_name }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- player search -->
+            <div class="player-search-section">
+                <h3>Search Players</h3>
+                <input type="text" id="playerSearch" class="player-search-input" placeholder="Search player by name">
+
+                <div class="player-grid"> <!-- fill in ltr-->
+                    <div class="player-card">
+                        <p>player</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
