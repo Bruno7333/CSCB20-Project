@@ -51,12 +51,33 @@ def league(league_id):
         (league_id,)
         )
     members = cursor.fetchall()
+
+    search = request.args.get('search', '')
+    positions = request.args.getlist('position')
+
+    query = "SELECT * FROM NBAPlayer WHERE playerName Like ?"
+    search_parameter = '%' + search + '%'
+    params = [search_parameter]
+
+    if positions:
+        position_clauses = "position LIKE ?"
+        params.append('%' + positions[0] + '%')
+        for p in positions[1:]:
+            position_clauses += "Or position LIKE ?"
+            params.append('%' + p + '%')
+        query += " AND (" + position_clauses + ")"
+
+    query += "ORDER BY prevPlayerScore DESC"
+
+    cursor.execute(query, params)
+    player_list = cursor.fetchall()[:10]  #get top 10 results should sort by player avg before getting top 10
+
     conn.close()
 
     if league_data is None:
         return redirect(url_for('dashboard'))
 
-    return render_template("league.html", league=league_data, members=members)
+    return render_template("league.html", league=league_data, members=members, player_list=player_list)
 
 @app.route("/start_league/<int:league_id>", methods=['POST'])
 def start_league(league_id):

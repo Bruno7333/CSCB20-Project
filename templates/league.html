@@ -45,16 +45,26 @@
             </div>
 
             <!-- player search -->
+            <form method="GET" action="{{url_for('league', league_id=league.id)}}">
             <div class="player-search-section">
                 <h3>Search Players</h3>
-                <input type="text" id="playerSearch" class="player-search-input" placeholder="Search player by name">
+                <input type="text" id="playerSearch" class="player-search-input" placeholder="Search player by name" name="search">
+                <div class="choose-position">
+                    <label><input type="checkbox" name="position" value="G"> Guard</label>
+                    <label><input type="checkbox" name="position" value="F"> Forward</label>
+                    <label><input type="checkbox" name="position" value="C"> Center</label>
+                </div>
 
                 <div class="player-grid"> <!-- fill in ltr-->
                     <div class="player-card">
-                        <p>player</p>
+                        {% for player in player_list %}
+                        <p>{{player.playerName}}, Position:{{player.position}} Score: {{player.prevPlayerScore}}</p>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
+            <button type="submit">Search</button>
+            </form>
         </div>
     </div>
 </body>
