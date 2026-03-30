@@ -229,6 +229,12 @@ def login():
         return redirect(url_for('dashboard'))
     else:
         return "Login failed. Check your credentials."
+    
+def compute_player_score(stats):
+    if not stats:
+        return 0
+    return stats[pts]*2 - stats[shots] + stats[blocks]*3 + stats[rebounds] + stats[assists]*2 - stats[turnovers]*3
+
 
 if __name__ == '__main__':
     init_db()
