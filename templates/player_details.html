@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Details - {{ player.playerName }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .player-info-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1.5rem;
+        }
+        .stats-table th, .stats-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+    </style>
+</head>
+<body style="display: block; height: auto;">
+    <div class="player-info-container">
+        <h1>{{ player.playerName }}</h1>
+        <p><strong>Team:</strong> {{ player.teamname or 'N/A' }}</p>
+        <p><strong>Position:</strong> {{ player.position }}</p>
+        <p><strong>Previous Season Score:</strong> {{ player.prevPlayerScore }}</p>
+
+        <hr>
+
+        <h3>Season Average Statistics</h3>
+        {% if stats %}
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>Stat</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Games Played</td><td>{{ stats.gamesPlayed }}</td></tr>
+                <tr><td>MPG</td><td>{{ stats.avgMinsPerGame }}</td></tr>
+                <tr><td>PPG</td><td>{{ stats.avgPointsPerGame }}</td></tr>
+                <tr><td>RPG</td><td>{{ stats.avgReboundsPerGame }}</td></tr>
+                <tr><td>APG</td><td>{{ stats.AvgAssistsPerGame }}</td></tr>
+                <tr><td>SPG</td><td>{{ stats.AvgStealsPerGame }}</td></tr>
+                <tr><td>BPG</td><td>{{ stats.AvgBlocksPerGame }}</td></tr>
+                <tr><td>TOPG</td><td>{{ stats.AvgTurnoversPerGame }}</td></tr>
+                <tr><td>FG%</td><td>{{ (stats.AvgFgPercentage * 100)|round(1) }}%</td></tr>
+                <tr><td>FT%</td><td>{{ (stats.AvgFtPercentage * 100)|round(1) }}%</td></tr>
+                <tr><td>3P%</td><td>{{ (stats.AvgThreePercentage * 100)|round(1) }}%</td></tr>
+            </tbody>
+        </table>
+        {% else %}
+        <p>No detailed statistics available for this player.</p>
+        {% endif %}
+
+    </div>
+</body>
+</html>

@@ -185,6 +185,7 @@ form[action*="league"] {
 
 .player-grid {
     display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 1rem;
     margin-top: 1rem;
 }
@@ -195,6 +196,13 @@ form[action*="league"] {
     border-radius: 4px;
     text-align: center;
     border: 1px solid #eee;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    user-select: none;
+}
+
+.player-card:hover {
+    background-color: #e9e9e9;
 }
 
 .start-btn {

@@ -18,3 +18,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setupFormValidation('registerForm');
     setupFormValidation('loginForm');
 });
+
+
+
+function openPlayerStats(url) {
+    window.open(url, '_blank');
+}

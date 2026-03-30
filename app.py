@@ -260,6 +260,29 @@ def compute_player_score(stats):
     return stats[pts]*2 - stats[shots] + stats[blocks]*3 + stats[rebounds] + stats[assists]*2 - stats[turnovers]*3
 
 
+@app.route("/player/<int:player_id>")
+def player_details(player_id):
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    # Get player info
+    cursor.execute("""
+        SELECT p.playerName, p.position, t.teamname, p.prevPlayerScore
+        FROM NBAPlayer p
+        LEFT JOIN NBATeam t ON p.TID = t.TID
+        WHERE p.PID = ?
+    """, (player_id,))
+    player = cursor.fetchone()
+
+    # Get stats
+    cursor.execute("SELECT * FROM NBAPlayerSeasonStats WHERE PID = ?", (player_id,))
+    stats = cursor.fetchone()
+
+    conn.close()
+    
+    return render_template("player_details.html", player=player, stats=stats)
+
 if __name__ == '__main__':
     init_db()
     app.run(debug=True, port = 8000)

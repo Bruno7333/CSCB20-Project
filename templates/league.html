@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>League - {{ league.leagueName }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </head>
 <body>
     <div class="league-container">
@@ -55,12 +56,16 @@
                     <label><input type="checkbox" name="position" value="C"> Center</label>
                 </div>
 
-                <div class="player-grid"> <!-- fill in ltr-->
-                    <div class="player-card">
-                        {% for player in player_list %}
-                        <p>{{player.playerName}}, Position:{{player.position}} Score: {{player.prevPlayerScore}}</p>
-                        {% endfor %}
+                <div class="player-grid">
+                    {% for player in player_list %}
+                    <div class="player-card"
+                         onclick="selectPlayer('{{ player.playerName }}')"
+                         ondblclick="openPlayerStats('{{ url_for('player_details', player_id=player.PID) }}')">
+                        <p><strong>{{player.playerName}}</strong></p>
+                        <p>Position: {{player.position}}</p>
+                        <p>Score: {{player.prevPlayerScore}}</p>
                     </div>
+                    {% endfor %}
                 </div>
             </div>
             <button type="submit">Search</button>
