@@ -235,10 +235,24 @@ def team(league_id):
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+    user_id = session.get("user_id")
 
-    query = """SELECT 
-                """ #finish later
-    return render_template("team.html")
+    query = """SELECT nba.playerName, nba.PID
+            FROM NBAPlayer nba
+            JOIN PlayerAthlete pa
+            ON nba.PID = pa.PID
+            WHERE pa.teamID = (
+                SELECT teamID
+                FROM PlayerTeam
+                WHERE LID = ?
+                AND accountID = ?
+            ) 
+            AND pa.LID = ?
+                """
+    cursor.execute(query, (league_id, user_id, league_id))
+    players = cursor.fetchall()
+    conn.close()
+    return render_template("team.html", players = players)
     
 def compute_player_score(stats):
     if not stats:
