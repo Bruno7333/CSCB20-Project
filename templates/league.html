@@ -17,8 +17,10 @@
                     <strong>Status:</strong>
                     {% if league.status == 'initial' %}
                         <span class="status-badge status-initial">Initial</span>
-                    {% else %}
+                    {% elif league.status == 'started' %}
                         <span class="status-badge status-draft">In Draft</span>
+                    {% else %}
+                        <span class="status-badge status-game">Game Phase</span>
                     {% endif %}
                 </div>
             </div>
@@ -63,8 +65,9 @@
 
                 <div class="player-grid">
                     {% for player in player_list %}
+                    {% set player_url = url_for('player_details', player_id=player.PID, league_id=league.id) %}
                     <div class="player-card"
-                         ondblclick="openPlayerStats('{{ url_for('player_details', player_id=player.PID) }}')">
+                         ondblclick="openPlayerStats('{{ player_url }}')">
                         <p><strong>{{player.playerName}}</strong></p>
                         <p>Position: {{player.position}}</p>
                         <p>Score: {{player.prevPlayerScore}}</p>

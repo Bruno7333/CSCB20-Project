@@ -34,6 +34,22 @@
         <p><strong>Position:</strong> {{ player.position }}</p>
         <p><strong>Previous Season Score:</strong> {{ player.prevPlayerScore }}</p>
 
+        <!-- Draft Section -->
+        {% if league_id %}
+        <div style="margin-top: 1.5rem; padding: 1rem; border-radius: 8px; border: 1px solid #ddd;">
+            {% if cannot_draft_reason %}
+                <p style="color: red; font-weight: bold;">Cannot Draft: {{ cannot_draft_reason }}</p>
+            {% elif can_draft %}
+                <p style="color: green;">You can draft this player!</p>
+                <form action="{{ url_for('draft_player', league_id=league_id, player_id=player.PID, team_id=user_team_id) }}" method="POST">
+                    <button type="submit" style="background-color: green; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                        Draft Player
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <hr>
 
         <h3>Season Average Statistics</h3>

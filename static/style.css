@@ -229,6 +229,11 @@ form[action*="league"] {
     color: #2e7d32;
 }
 
+.status-game {
+    background-color: #fff3e0;
+    color: #e65100;
+}
+
 .dashboard-link {
     color: #3a618a;
     text-decoration: none;

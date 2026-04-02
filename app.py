@@ -283,15 +283,16 @@ def compute_player_score(stats):
     return stats[pts]*2 - stats[shots] + stats[blocks]*3 + stats[rebounds] + stats[assists]*2 - stats[turnovers]*3
 
 
-@app.route("/player/<int:player_id>")
-def player_details(player_id):
+@app.route("/player/<int:player_id>", methods=['GET'])
+@app.route("/player/<int:player_id>/league/<int:league_id>", methods=['GET'])
+def player_details(player_id, league_id=None):
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
     # Get player info
     cursor.execute("""
-        SELECT p.playerName, p.position, t.teamname, p.prevPlayerScore,
+        SELECT p.playerName, p.position, t.teamname, p.prevPlayerScore, p.PID,
                pt.teamName as fantasy_team, pl.leagueName
         FROM NBAPlayer p
         LEFT JOIN NBATeam t ON p.TID = t.TID
@@ -306,9 +307,87 @@ def player_details(player_id):
     cursor.execute("SELECT * FROM NBAPlayerSeasonStats WHERE PID = ?", (player_id,))
     stats = cursor.fetchone()
 
+    # Draft eligibility check
+    can_draft = False
+    cannot_draft_reason = None
+    user_team_id = None
+
+    if league_id:
+        user_id = session.get('user_id')
+
+        # Check if player is already drafted
+        cursor.execute("SELECT teamID FROM PlayerAthlete WHERE PID = ? AND LID = ?", (player_id, league_id))
+        if cursor.fetchone():
+            cannot_draft_reason = "Player already drafted"
+        else:
+            # Check if user turn
+            current_turn_team_id = get_current_draft_turn(cursor, league_id)
+
+            if current_turn_team_id is None:
+                cannot_draft_reason = "Draft is not active or has ended"
+            else:
+                # Get TID
+                cursor.execute(
+                    "SELECT teamID FROM PlayerTeam WHERE LID = ? AND accountID = ?",
+                    (league_id, user_id)
+                )
+                user_team = cursor.fetchone()
+                if user_team:
+                    user_team_id = user_team['teamID']
+                    if user_team_id == current_turn_team_id:
+                        can_draft = True
+                    else:
+                        cannot_draft_reason = "It's not your turn to draft"
+                else:
+                    cannot_draft_reason = "You are not in this league"
+
     conn.close()
 
-    return render_template("player_details.html", player=player, stats=stats)
+    return render_template("player_details.html", player=player, stats=stats,
+                         league_id=league_id, can_draft=can_draft,
+                         cannot_draft_reason=cannot_draft_reason, user_team_id=user_team_id)
+
+
+@app.route("/draft_player/<int:league_id>/<int:player_id>/<int:team_id>", methods=['POST'])
+def draft_player(league_id, player_id, team_id):
+    user_id = session.get('user_id')
+
+    if not user_id:
+        return redirect(url_for('login_page'))
+
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    # Verify user owns this team
+    cursor.execute(
+        "SELECT 1 FROM PlayerTeam WHERE teamID = ? AND LID = ? AND accountID = ?",
+        (team_id, league_id, user_id)
+    )
+    if not cursor.fetchone():
+        conn.close()
+        return redirect(url_for('league', league_id=league_id))
+
+    # Check if it's the user's turn
+    current_turn_team_id = get_current_draft_turn(cursor, league_id)
+    if current_turn_team_id != team_id:
+        conn.close()
+        return redirect(url_for('league', league_id=league_id))
+
+    # Check if player is already drafted
+    cursor.execute("SELECT 1 FROM PlayerAthlete WHERE PID = ? AND LID = ?", (player_id, league_id))
+    if cursor.fetchone():
+        conn.close()
+        return redirect(url_for('league', league_id=league_id))
+
+    # Draft the player
+    cursor.execute(
+        "INSERT INTO PlayerAthlete (LID, PID, teamID) VALUES (?, ?, ?)",
+        (league_id, player_id, team_id)
+    )
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for('league', league_id=league_id))
 
 
 #helper function for draft
@@ -323,7 +402,7 @@ def get_current_draft_turn(cursor, league_id):
 
     # check if still draft
     if total_picks >= (num_teams * 10):
-        cursor.execute("UPDATE PlayerLeague SET status = 'final' WHERE LID = ?", (league_id,))
+        cursor.execute("UPDATE PlayerLeague SET status = 'game' WHERE LID = ?", (league_id,))
         return None
 
     current_round = (total_picks // num_teams) + 1
