@@ -7,6 +7,7 @@ app.secret_key = 'lebron-james-king-of-basketball'
 DB_FILE = "./SQLite/nba.db"
 leagues = ()
 
+
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -37,7 +38,7 @@ def league(league_id):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute(
-        """SELECT LID as id, leagueName, status, ownerAccount, draftType
+        """SELECT LID as id, leagueName, status, ownerAccount, draftType, current_day
             FROM PlayerLeague
             WHERE LID = ?""",
         (league_id,)
@@ -61,7 +62,24 @@ def league(league_id):
 
     # Get games for game phase
     games = []
+    current_day = None
+    viewed_day = None
+    max_day = None
     if league_data and league_data['status'] == 'game':
+        current_day = league_data['current_day']
+        viewed_day = request.args.get('day', current_day, type=int)
+
+        # Get max day available
+        cursor.execute(
+            "SELECT MAX(week) FROM PlayerSchedule WHERE LID = ?",
+            (league_id,)
+        )
+        result = cursor.fetchone()
+        max_day = result[0] if result[0] else current_day
+
+        # Clamp viewed_day between 1 and max_day
+        viewed_day = max(1, min(viewed_day, max_day))
+
         cursor.execute(
             """SELECT ps.matchupID, ps.week, ps.T1, ps.T2,
                       pt1.teamName as team1_name, pt2.teamName as team2_name,
@@ -71,9 +89,9 @@ def league(league_id):
                LEFT JOIN PlayerTeam pt2 ON ps.T2 = pt2.teamID
                LEFT JOIN PlayerGame pg1 ON ps.LID = pg1.LID AND ps.matchupID = pg1.matchupID AND ps.T1 = pg1.teamID
                LEFT JOIN PlayerGame pg2 ON ps.LID = pg2.LID AND ps.matchupID = pg2.matchupID AND ps.T2 = pg2.teamID
-               WHERE ps.LID = ?
-               ORDER BY ps.week""",
-            (league_id,)
+               WHERE ps.LID = ? AND ps.week = ?
+               ORDER BY ps.matchupID""",
+            (league_id, viewed_day)
         )
         games = cursor.fetchall()
 
@@ -95,7 +113,7 @@ def league(league_id):
     query += "ORDER BY prevPlayerScore DESC"
 
     cursor.execute(query, params)
-    player_list = cursor.fetchall()[:10]  #get top 10 results should sort by player avg before getting top 10
+    player_list = cursor.fetchall()[:10]
 
     conn.close()
 
@@ -103,7 +121,8 @@ def league(league_id):
         return redirect(url_for('dashboard'))
 
     return render_template("league.html", league=league_data, members=members,
-                           player_list=player_list, current_turn=current_turn_team_id, games=games)
+                           player_list=player_list, current_turn=current_turn_team_id, games=games,
+                           current_day=current_day, viewed_day=viewed_day, max_day=max_day)
 
 @app.route("/start_league/<int:league_id>", methods=['POST'])
 def start_league(league_id):
@@ -121,7 +140,11 @@ def start_league(league_id):
     if cursor.fetchone():
         # get teams
         cursor.execute("SELECT teamID FROM PlayerTeam WHERE LID = ?", (league_id,))
-        teams = [row[0] for row in cursor.fetchall()]
+        teams_data = cursor.fetchall()
+        teams = []
+        for team in teams_data:
+            teams.append(team[0])
+
         # randomize
         random.shuffle(teams)
 
@@ -141,22 +164,63 @@ def start_league(league_id):
     conn.close()
     return redirect(url_for('league', league_id=league_id))
 
+@app.route("/advance_day/<int:league_id>", methods=['POST'])
+def advance_day(league_id):
+    owner_id = session.get('user_id')
+
+    if not owner_id:
+        return redirect(url_for('login_page'))
+
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    # Verify owner
+    cursor.execute(
+        "SELECT current_day FROM PlayerLeague WHERE LID = ? AND ownerAccount = ? AND status = 'game'",
+        (league_id, owner_id)
+    )
+    result = cursor.fetchone()
+
+    if result:
+        current_day = result[0]
+        # Check if there are games on the next day
+        cursor.execute(
+            "SELECT COUNT(*) FROM PlayerSchedule WHERE LID = ? AND week = ?",
+            (league_id, current_day + 1)
+        )
+        if cursor.fetchone()[0] > 0:
+            cursor.execute(
+                "UPDATE PlayerLeague SET current_day = ? WHERE LID = ?",
+                (current_day + 1, league_id)
+            )
+            conn.commit()
+
+    conn.close()
+    return redirect(url_for('league', league_id=league_id))
+
 # Dashboard load function
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
     conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
     # select leagues
     cursor.execute(
-        """SELECT pl.LID as id, pl.leagueName as name
-            FROM PlayerLeague pL
+        """SELECT pl.LID, pl.leagueName
+            FROM PlayerLeague pl
             JOIN PlayerTeam pt ON pl.LID = pt.LID
-            WHERE pt.accountId = ?""",
+            WHERE pt.accountID = ?""",
         (session.get('user_id'),)
         )
-    leagues = cursor.fetchall()
+    leagues_data = cursor.fetchall()
+
+    leagues = []
+    for league in leagues_data:
+        leagues.append({
+            'id': league[0],
+            'name': league[1]
+        })
+
     conn.close()
 
     return render_template('dashboard.html', leagues=leagues)
@@ -273,11 +337,10 @@ def login():
 @app.route('/team/<int:league_id>')
 def team(league_id):
     conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     user_id = session.get("user_id")
 
-    query = """SELECT nba.playerName, nba.position , nba.PID
+    query = """SELECT nba.playerName, nba.position, nba.PID
             FROM NBAPlayer nba
             JOIN PlayerAthlete pa
             ON nba.PID = pa.PID
@@ -290,28 +353,32 @@ def team(league_id):
             AND pa.LID = ?
                 """
     cursor.execute(query, (league_id, user_id, league_id))
-    players = cursor.fetchall()
+    players_data = cursor.fetchall()
+
+    players = []
+    for player in players_data:
+        players.append({
+            'playerName': player[0],
+            'position': player[1],
+            'PID': player[2]
+        })
+
     conn.close()
-    return render_template("team.html", players = players)
-
-# for a game
-def compute_player_score(stats):
-    if not stats:
-        return 0
-    return stats[pts]*2 - stats[shots] + stats[blocks]*3 + stats[rebounds] + stats[assists]*2 - stats[turnovers]*3
+    return render_template("team.html", players=players)
 
 
-@app.route("/player/<int:player_id>", methods=['GET'])
-@app.route("/player/<int:player_id>/league/<int:league_id>", methods=['GET'])
-def player_details(player_id, league_id=None):
+
+@app.route("/player/<int:player_id>")
+def player_details(player_id):
+    league_id = request.args.get('league_id', type=int)
+
     conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
     # Get player info
     cursor.execute("""
         SELECT p.playerName, p.position, t.teamname, p.prevPlayerScore, p.PID,
-               pt.teamName as fantasy_team, pl.leagueName
+               pt.teamName, pl.leagueName
         FROM NBAPlayer p
         LEFT JOIN NBATeam t ON p.TID = t.TID
         LEFT JOIN PlayerAthlete pa ON p.PID = pa.PID
@@ -319,7 +386,7 @@ def player_details(player_id, league_id=None):
         LEFT JOIN PlayerLeague pl ON pa.LID = pl.LID
         WHERE p.PID = ?
     """, (player_id,))
-    player = cursor.fetchone()
+    player_data = cursor.fetchone()
 
     # Get stats
     cursor.execute("SELECT * FROM NBAPlayerSeasonStats WHERE PID = ?", (player_id,))
@@ -351,7 +418,7 @@ def player_details(player_id, league_id=None):
                 )
                 user_team = cursor.fetchone()
                 if user_team:
-                    user_team_id = user_team['teamID']
+                    user_team_id = user_team[0]
                     if user_team_id == current_turn_team_id:
                         can_draft = True
                     else:
@@ -360,6 +427,16 @@ def player_details(player_id, league_id=None):
                     cannot_draft_reason = "You are not in this league"
 
     conn.close()
+
+    player = {
+        'playerName': player_data[0] if player_data else None,
+        'position': player_data[1] if player_data else None,
+        'teamname': player_data[2] if player_data else None,
+        'prevPlayerScore': player_data[3] if player_data else None,
+        'PID': player_data[4] if player_data else None,
+        'fantasy_team': player_data[5] if player_data else None,
+        'leagueName': player_data[6] if player_data else None
+    }
 
     return render_template("player_details.html", player=player, stats=stats,
                          league_id=league_id, can_draft=can_draft,
@@ -442,7 +519,7 @@ def draft_player(league_id, player_id, team_id):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
 
-    # Verify user owns this team
+    # check team = player owns
     cursor.execute(
         "SELECT 1 FROM PlayerTeam WHERE teamID = ? AND LID = ? AND accountID = ?",
         (team_id, league_id, user_id)
@@ -451,19 +528,19 @@ def draft_player(league_id, player_id, team_id):
         conn.close()
         return redirect(url_for('league', league_id=league_id))
 
-    # Check if it's the user's turn
+    # Check  user turn
     current_turn_team_id = get_current_draft_turn(cursor, league_id)
     if current_turn_team_id != team_id:
         conn.close()
         return redirect(url_for('league', league_id=league_id))
 
-    # Check if player is already drafted
+    # Check if player already drafted
     cursor.execute("SELECT 1 FROM PlayerAthlete WHERE PID = ? AND LID = ?", (player_id, league_id))
     if cursor.fetchone():
         conn.close()
         return redirect(url_for('league', league_id=league_id))
 
-    # Draft the player
+    # Draft the player fn
     cursor.execute(
         "INSERT INTO PlayerAthlete (LID, PID, teamID) VALUES (?, ?, ?)",
         (league_id, player_id, team_id)
@@ -474,47 +551,46 @@ def draft_player(league_id, player_id, team_id):
     return redirect(url_for('league', league_id=league_id))
 
 
-# Generate schedule for league when draft ends
 def generate_schedule(cursor, league_id):
     # Get all teams
     cursor.execute("SELECT teamID FROM PlayerTeam WHERE LID = ?", (league_id,))
-    teams = [row[0] for row in cursor.fetchall()]
+    teams_data = cursor.fetchall()
+    teams = []
+    for team in teams_data:
+        teams.append(team[0])
+
     num_teams = len(teams)
 
     if num_teams < 2:
         return
 
     matchup_id = 1
-    matchups = []
+    day = 1
 
-    # Round-robin scheduling
+    # round robin
     if num_teams % 2 == 1:
-        # Odd number of teams - add a bye team
         teams.append(None)
-        num_teams += 1
+        num_teams = num_teams + 1
 
-    # Generate round-robin schedule using circular method
+    # Generate matchups
     for round_num in range(num_teams - 1):
         # Create pairs for this round
-        temp_teams = teams[:]
-
         for i in range(num_teams // 2):
-            team1 = temp_teams[i]
-            team2 = temp_teams[num_teams - 1 - i]
+            team1 = teams[i]
+            team2 = teams[num_teams - 1 - i]
 
             if team1 is not None and team2 is not None:
-                matchups.append((matchup_id, league_id, round_num + 1, team1, team2))
-                matchup_id += 1
+                cursor.execute(
+                    "INSERT INTO PlayerSchedule (matchupID, LID, week, T1, T2) VALUES (?, ?, ?, ?, ?)",
+                    (matchup_id, league_id, day, team1, team2)
+                )
+                matchup_id = matchup_id + 1
 
-        # Rotate teams for next round (keep first team fixed)
-        teams = [teams[0]] + teams[1:][::-1]
+        day = day + 1
 
-    # Insert all matchups into database
-    for matchup in matchups:
-        cursor.execute(
-            "INSERT INTO PlayerSchedule (matchupID, LID, week, T1, T2) VALUES (?, ?, ?, ?, ?)",
-            matchup
-        )
+        # Rotate teams for next round
+        if round_num < num_teams - 2:
+            teams = [teams[0]] + teams[-1:] + teams[1:-1]
 
 
 #helper function for draft
@@ -538,15 +614,16 @@ def get_current_draft_turn(cursor, league_id):
 
     # get draft type
     cursor.execute("SELECT draftType FROM PlayerLeague WHERE LID = ?", (league_id,))
-    draft_type = cursor.fetchone()[0]
+    draft_type_result = cursor.fetchone()
+    draft_type = draft_type_result[0]
 
-    # snake
+    # snake draft: reverse order on even rounds
     if draft_type == 'snake' and current_round % 2 == 0:
         target_pick_order = num_teams - pick_in_round + 1
     else:
         target_pick_order = pick_in_round
 
-    # order
+    # get team with this pick order
     cursor.execute(
         "SELECT teamID FROM DraftOrder WHERE LID = ? AND pickOrder = ?",
         (league_id, target_pick_order)

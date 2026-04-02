@@ -50,25 +50,34 @@
                         </div>
                     {% endfor %}
                 </div>
-            </div>
-
-            <!-- player search / games section -->
+            </div>            <!-- player search / games section -->
             {% if league.status == 'game' %}
                 <!-- Game Phase View -->
                 <div class="games-section">
-                    <h3>Your Games</h3>
-                    {% set grouped_games = {} %}
-                    {% for game in games %}
-                        {% if game.week not in grouped_games %}
-                            {% set _ = grouped_games.update({game.week: []}) %}
+                    <div class="games-header">
+                        <div class="day-navigation">
+                            {% if viewed_day > 1 %}
+                                <a href="{{ url_for('league', league_id=league.id, day=viewed_day-1) }}" class="nav-btn prev-btn">← Previous Day</a>
+                            {% else %}
+                                <button class="nav-btn prev-btn" disabled>← Previous Day</button>
+                            {% endif %}
+                            <h3>Day {{ viewed_day }}</h3>
+                            {% if viewed_day < max_day %}
+                                <a href="{{ url_for('league', league_id=league.id, day=viewed_day+1) }}" class="nav-btn next-btn">Next Day →</a>
+                            {% else %}
+                                <button class="nav-btn next-btn" disabled>Next Day →</button>
+                            {% endif %}
+                        </div>
+                        {% if session.get('user_id') == league.ownerAccount and viewed_day == current_day %}
+                            <form action="{{ url_for('advance_day', league_id=league.id) }}" method="POST" style="display: inline;">
+                                <button type="submit" class="advance-btn">Advance day</button>
+                            </form>
                         {% endif %}
-                        {% set _ = grouped_games[game.week].append(game) %}
-                    {% endfor %}
+                    </div>
 
-                    {% for week in grouped_games|sort %}
-                        <div class="week-games">
-                            <h4>Week {{ week }}</h4>
-                            {% for game in grouped_games[week] %}
+                    {% if games %}
+                        <div class="games-list">
+                            {% for game in games %}
                                 <div class="game-matchup">
                                     <div class="team1">
                                         <span class="team-name">{{ game.team1_name }}</span>
@@ -82,7 +91,9 @@
                                 </div>
                             {% endfor %}
                         </div>
-                    {% endfor %}
+                    {% else %}
+                        <p style="text-align: center; color: #999; padding: 2rem;">No games scheduled for this day.</p>
+                    {% endif %}
                 </div>
             {% else %}
                 <!-- Player Search -->

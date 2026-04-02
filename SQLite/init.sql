@@ -71,7 +71,8 @@ CREATE TABLE PlayerLeague (
     draftType TEXT,
     leagueName TEXT,
     ownerAccount INTEGER,
-    status TEXT DEFAULT 'initial', -- 'initial', 'draft', 'final'
+    status TEXT DEFAULT 'initial', -- 'initial', 'started', 'game'
+    current_day INTEGER DEFAULT 1,
     FOREIGN KEY (ownerAccount) REFERENCES PlayerAccount(accountID)
 );
 
@@ -88,6 +89,7 @@ CREATE TABLE PlayerAthlete (
     LID INTEGER,
     PID INTEGER,
     teamID INTEGER,
+    active INTEGER DEFAULT 0,
     PRIMARY KEY (LID, PID),
     FOREIGN KEY (LID) REFERENCES PlayerLeague(LID),
     FOREIGN KEY (PID) REFERENCES NBAPlayer(PID),
@@ -168,6 +170,7 @@ CREATE TABLE DraftOrder (
     LID INTEGER,
     teamID INTEGER,
     pickOrder INTEGER,
+    day INTEGER DEFAULT 0,
     PRIMARY KEY (LID, pickOrder),
     FOREIGN KEY (LID) REFERENCES PlayerLeague(LID),
     FOREIGN KEY (teamID) REFERENCES PlayerTeam(teamID)
