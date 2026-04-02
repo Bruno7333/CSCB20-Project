@@ -10,7 +10,9 @@
     <div class="league-container">
         <h2>Players on your team:</h2>
 
+        {% if is_owner %}
         <form action="{{ url_for('set_active', league_id=league_id) }}" method="POST">
+        {% endif %}
             <table>
                 <thead>
                     <tr>
@@ -25,16 +27,22 @@
                         <td>{{ player.playerName }}</td>
                         <td>{{ player.position }}</td>
                         <td>
+                            {% if is_owner %}
                             <input type="checkbox" name="active_pid" value="{{ player.PID }}"
                                 {% if player.active %}checked{% endif %}>
+                            {% else %}
+                            {{ 'Active' if player.active else 'Inactive' }}
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
 
+        {% if is_owner %}
             <button type="submit">Save Active Roster</button>
         </form>
+        {% endif %}
     </div>
 </body>
 </html>

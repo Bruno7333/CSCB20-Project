@@ -364,23 +364,32 @@ def login():
 
 @app.route('/team/<int:league_id>')
 def team(league_id):
+    user_id = session.get("user_id")
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT teamID FROM PlayerTeam WHERE LID = ? AND accountID = ?", (league_id, user_id))
+    my_team = cursor.fetchone()
+    conn.close()
+    if my_team is None:
+        return redirect(url_for('league', league_id=league_id))
+    return redirect(url_for('view_team', league_id=league_id, team_id=my_team[0]))
+
+@app.route('/team/<int:league_id>/<int:team_id>')
+def view_team(league_id, team_id):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     user_id = session.get("user_id")
 
+    # check if this is the users team
+    cursor.execute("SELECT teamID FROM PlayerTeam WHERE LID = ? AND accountID = ?", (league_id, user_id))
+    my_team = cursor.fetchone()
+    is_owner = my_team is not None and my_team[0] == team_id
+
     query = """SELECT nba.playerName, nba.position, nba.PID, pa.active
             FROM NBAPlayer nba
-            JOIN PlayerAthlete pa
-            ON nba.PID = pa.PID
-            WHERE pa.teamID = (
-                SELECT teamID
-                FROM PlayerTeam
-                WHERE LID = ?
-                AND accountID = ?
-            )
-            AND pa.LID = ?
-                """
-    cursor.execute(query, (league_id, user_id, league_id))
+            JOIN PlayerAthlete pa ON nba.PID = pa.PID
+            WHERE pa.teamID = ? AND pa.LID = ?"""
+    cursor.execute(query, (team_id, league_id))
     players_data = cursor.fetchall()
 
     players = []
@@ -388,11 +397,12 @@ def team(league_id):
         players.append({
             'playerName': player[0],
             'position': player[1],
-            'PID': player[2]
+            'PID': player[2],
+            'active': player[3]
         })
 
     conn.close()
-    return render_template("team.html", players=players, league_id=league_id)
+    return render_template("team.html", players=players, league_id=league_id, team_id=team_id, is_owner=is_owner)
 
 @app.route('/set_active/<int:league_id>', methods=['POST'])
 def set_active(league_id):

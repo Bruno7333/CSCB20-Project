@@ -41,6 +41,7 @@
                 <h3>League Members</h3>
                 <div class="member-list">
                     {% for member in members %}
+                        <a  href = {{url_for('view_team', league_id=league.id, team_id=member.teamID)}}>
                         <div class="member-item {% if current_turn and member.teamID == current_turn %}current-turn{% endif %}">
                             <span><strong>{{ member.name }}</strong></span>
                             <span class="member-team">{{ member.team_name }}</span>
@@ -48,6 +49,7 @@
                                 <span class="turn-indicator" style = "color:red">IS DRAFTING</span>
                             {% endif %}
                         </div>
+                        </a>
                     {% endfor %}
                 </div>
             </div>            <!-- player search / games section -->
