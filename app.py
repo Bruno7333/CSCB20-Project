@@ -366,6 +366,72 @@ def player_details(player_id, league_id=None):
                          cannot_draft_reason=cannot_draft_reason, user_team_id=user_team_id)
 
 
+@app.route('/trade/<int:league_id>', methods=['GET', 'POST'])
+def trade(league_id):
+    # choose either looking at trades you can make or the trades that you have which are pending
+    # show a list of the players on your team on one side, 
+    # the players available for trade on the other side,
+    # allow functionality for choosing which player you want to trade and trade for
+    user_id = session['user_id']
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    query1 = "SELECT teamID FROM PlayerTeam WHERE LID = ? AND accountID = ?"
+    cursor.execute(query1, (league_id, user_id))
+    my_team = cursor.fetchone()
+    my_team_id = my_team['teamID']
+
+    query2 ="""SELECT nba.PID, nba.playerName FROM NBAPlayer nba
+            JOIN PlayerAthlete pa ON nba.PID = pa.PID
+            WHERE pa.teamID = ? AND pa.LID = ?
+            """
+    cursor.execute(query2, (my_team_id, league_id))
+    my_players = cursor.fetchall()
+
+    query3 ="""SELECT pt.teamID, pt.teamName as team_name
+            FROM PlayerTeam pt WHERE pt.LID = ? AND pt.teamId != ?
+            """
+    cursor.execute(query3, (league_id, my_team_id))
+    members = cursor.fetchall()
+
+    # do query for pending trades later, ts hard asl
+    pending_trades = []
+
+    #if palyer chose a team to trade with get the ppl on that team
+    target_team_id = request.args.get('target_team_id')
+    other_players = []
+    if target_team_id:
+        query5 =""" SELECT nba.PID, nba.playerName, pt.teamName as team_name
+                FROM NBAPlayer nba
+                JOIN PlayerAthlete pa ON nba.PID = pa.PID
+                JOIN PlayerTeam pt ON pa.teamID = pt.teamID
+                WHERE pa.teamID = ? AND pa.LID = ?
+                """
+        cursor.execute(query5, (target_team_id, league_id))
+        other_players = cursor.fetchall
+
+    conn.close()
+
+    return render_template("trade.html", my_players=my_players, members=members, pending_trades=pending_trades, other_players=other_players, target_team_id=target_team_id, league_id=league_id)
+
+
+@app.route('/accept_trade/<int:league_id>/<int:trade_id>', methods=['POST'])
+def accept_trade(league_id, trade_id):
+    #accept an existing trade
+    return "accpeted"
+
+@app.route('/decline_trade/<int:league_id>/<int:trade_id>', methods=['POST'])
+def decline_trade(league_id, trade_id):
+    #decline an existing trade
+    return "declined"
+
+@app.route('/propose_trade/<int:league_id>', methods=['POST'])
+def propose_trade(league_id):
+    #propose a new trade
+    return "proposed"
+
+
 @app.route("/draft_player/<int:league_id>/<int:player_id>/<int:team_id>", methods=['POST'])
 def draft_player(league_id, player_id, team_id):
     user_id = session.get('user_id')

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Team - temp</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <p>Pending Trades</p>
+    {% for trade in pending_trades %}
+    <div>{{ trade.offering_team }} offers {{ trade.offered_player }} for {{ trade.requested_player }}
+    <form action="{{ url_for('accept_trade', league_id=league_id, trade_id=trade.tradeID)}}" method="POST">
+        <button type="submit">Accept</button>
+    </form>
+    <form action="{{ url_for('decline_trade', league_id=league_id, trade_id=trade.tradeID)}}" method="POST">
+        <button type="submit">Decline</button>
+    </form>
+    </div>
+    {% endfor %}
+
+    <p>Propose a Trade</p>
+
+    <form action="{{ url_for('trade', league_id=league_id) }}" method="GET">
+        <label>You offer:
+            <select name="offered_pid">
+                {% for player in my_players %}
+                <option value="{{ player.PID }}">{{player.playerName}}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label>Team you trade with:
+            <select name="target_team_id">
+                {% for member in members %}
+                <option value="{{ member.teamID }}">{{ member.team_name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <button type="submit">Select Team</button>
+    </form>
+
+    {% if target_team_id %}
+    <form action="{{ url_for('propose_trade', league_id=league_id) }}" method="POST">
+        <input type="hidden" name="offered_pid" value="{{ request.args.get('offered_pid') }}">
+        <input type="hidden" name="target_team_id" value="{{ target_team_id }}">
+
+        <label>You get:
+            <select name="requested_pid">
+                {% for player in other_players %}
+                <option value="{{ player.PID }}">{{player.playerName}} ({{ player.team_name}})</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <button type="submit">Propose Trade</button>
+    </form>
+    {% endif %}
+    
+</body>
+</html>
