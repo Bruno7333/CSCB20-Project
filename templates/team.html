@@ -8,11 +8,12 @@
 </head>
 <body>
     <div class="league-container">
-        test-1
+        Players on your team:
         <div class="league-header">
             {% for player in players %}
                 <p>{{player.playerName}}</p>
-                <p>name</p>
+                <p>{{player.position}}</p>
+
             {% endfor %}
 
             test-2

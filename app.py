@@ -237,7 +237,7 @@ def team(league_id):
     cursor = conn.cursor()
     user_id = session.get("user_id")
 
-    query = """SELECT nba.playerName, nba.PID
+    query = """SELECT nba.playerName, nba.position , nba.PID
             FROM NBAPlayer nba
             JOIN PlayerAthlete pa
             ON nba.PID = pa.PID
