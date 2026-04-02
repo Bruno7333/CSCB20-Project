@@ -72,7 +72,7 @@ CREATE TABLE PlayerLeague (
     leagueName TEXT,
     ownerAccount INTEGER,
     status TEXT DEFAULT 'initial', -- 'initial', 'started', 'game'
-    current_day INTEGER DEFAULT 1,
+    current_day INTEGER DEFAULT 0,
     FOREIGN KEY (ownerAccount) REFERENCES PlayerAccount(accountID)
 );
 

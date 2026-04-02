@@ -62,6 +62,7 @@ def league(league_id):
 
     # Get games for game phase
     games = []
+    nba_games = []
     current_day = None
     viewed_day = None
     max_day = None
@@ -95,6 +96,28 @@ def league(league_id):
         )
         games = cursor.fetchall()
 
+        # Get NBA games for this day (based on day offset from first NBA game)
+        cursor.execute("SELECT MIN(date) FROM NBASchedule")
+        first_nba_date_result = cursor.fetchone()
+        nba_games = []
+        if first_nba_date_result and first_nba_date_result[0]:
+            from datetime import datetime, timedelta
+            date_str = first_nba_date_result[0].split()[0] if ' ' in first_nba_date_result[0] else first_nba_date_result[0]
+            first_nba_date = datetime.strptime(date_str, '%Y-%m-%d')
+            nba_date = first_nba_date + timedelta(days=viewed_day - 1)
+            nba_date_str = nba_date.strftime('%Y-%m-%d')
+
+            cursor.execute(
+                """SELECT nt1.teamname as home_team, nt2.teamname as away_team
+                   FROM NBASchedule ns
+                   LEFT JOIN NBATeam nt1 ON ns.home = nt1.TID
+                   LEFT JOIN NBATeam nt2 ON ns.away = nt2.TID
+                   WHERE date(ns.date) = ?
+                   ORDER BY ns.GID""",
+                (nba_date_str,)
+            )
+            nba_games = cursor.fetchall()
+
     search = request.args.get('search', '')
     positions = request.args.getlist('position')
 
@@ -122,7 +145,7 @@ def league(league_id):
 
     return render_template("league.html", league=league_data, members=members,
                            player_list=player_list, current_turn=current_turn_team_id, games=games,
-                           current_day=current_day, viewed_day=viewed_day, max_day=max_day)
+                           current_day=current_day, viewed_day=viewed_day, max_day=max_day, nba_games=nba_games)
 
 @app.route("/start_league/<int:league_id>", methods=['POST'])
 def start_league(league_id):
@@ -183,6 +206,10 @@ def advance_day(league_id):
 
     if result:
         current_day = result[0]
+
+        # Calculate scores for current day before advancing
+        calculate_day_scores(cursor, league_id, current_day)
+
         # Check if there are games on the next day
         cursor.execute(
             "SELECT COUNT(*) FROM PlayerSchedule WHERE LID = ? AND week = ?",
@@ -193,7 +220,8 @@ def advance_day(league_id):
                 "UPDATE PlayerLeague SET current_day = ? WHERE LID = ?",
                 (current_day + 1, league_id)
             )
-            conn.commit()
+
+        conn.commit()
 
     conn.close()
     return redirect(url_for('league', league_id=league_id))
@@ -446,7 +474,7 @@ def player_details(player_id):
 @app.route('/trade/<int:league_id>', methods=['GET', 'POST'])
 def trade(league_id):
     # choose either looking at trades you can make or the trades that you have which are pending
-    # show a list of the players on your team on one side, 
+    # show a list of the players on your team on one side,
     # the players available for trade on the other side,
     # allow functionality for choosing which player you want to trade and trade for
     user_id = session['user_id']
@@ -549,6 +577,95 @@ def draft_player(league_id, player_id, team_id):
     conn.close()
 
     return redirect(url_for('league', league_id=league_id))
+
+
+def calculate_day_scores(cursor, league_id, day):
+    """Calculate scores for all games on a given day and update PlayerGame"""
+
+    # Standard fantasy scoring (based on available columns in NBAGameStats)
+    SCORING = {
+        'pts': 1.0,
+        'reb': 1.25,
+        'ast': 1.5,
+        'blk': 2.0,
+        'tov': -1.0
+    }
+
+    # Get all games for this day
+    cursor.execute(
+        """SELECT matchupID, T1, T2 FROM PlayerSchedule
+           WHERE LID = ? AND week = ?""",
+        (league_id, day)
+    )
+    games = cursor.fetchall()
+
+    for matchup_id, team1_id, team2_id in games:
+        # Get the NBA date for this fantasy day
+        cursor.execute("SELECT MIN(date) FROM NBASchedule")
+        first_nba_date_result = cursor.fetchone()
+
+        if first_nba_date_result and first_nba_date_result[0]:
+            from datetime import datetime, timedelta
+            date_str = first_nba_date_result[0].split()[0] if ' ' in first_nba_date_result[0] else first_nba_date_result[0]
+            first_nba_date = datetime.strptime(date_str, '%Y-%m-%d')
+            nba_date = first_nba_date + timedelta(days=day - 1)
+            nba_date_str = nba_date.strftime('%Y-%m-%d')
+
+            # Calculate scores for both teams
+            for team_id in [team1_id, team2_id]:
+                team_score = 0.0
+
+                # Get all players on this team (regardless of active status - add all to AthleteGame)
+                cursor.execute(
+                    """SELECT pa.PID, pa.active, np.playerName
+                       FROM PlayerAthlete pa
+                       JOIN NBAPlayer np ON pa.PID = np.PID
+                       WHERE pa.LID = ? AND pa.teamID = ?""",
+                    (league_id, team_id)
+                )
+                players = cursor.fetchall()
+
+                for player_id, active, player_name in players:
+                    player_score = 0.0
+
+                    # Get player's NBA stats for this date
+                    cursor.execute(
+                        """SELECT ngs.pts, ngs.rebounds, ngs.assists, ngs.blocks, ngs.turnovers
+                           FROM NBAGameStats ngs
+                           JOIN NBASchedule ns ON ngs.GID = ns.GID
+                           WHERE ngs.PID = ? AND date(ns.date) = ?""",
+                        (player_id, nba_date_str)
+                    )
+                    stats = cursor.fetchone()
+
+                    if stats:
+                        pts, reb, ast, blk, tov = stats
+                        # Calculate fantasy score using standard scoring
+                        player_score = (
+                            (pts or 0) * SCORING['pts'] +
+                            (reb or 0) * SCORING['reb'] +
+                            (ast or 0) * SCORING['ast'] +
+                            (blk or 0) * SCORING['blk'] +
+                            (tov or 0) * SCORING['tov']
+                        )
+
+                    # Store individual player score in AthleteGame (only if they played or active)
+                    cursor.execute(
+                        """INSERT OR REPLACE INTO AthleteGame (LID, matchupID, day, PID, playerScore, status)
+                           VALUES (?, ?, ?, ?, ?, ?)""",
+                        (league_id, matchup_id, str(day), player_id, player_score, 'active' if active else 'bench')
+                    )
+
+                    # Only count active players toward team score
+                    if active:
+                        team_score += player_score
+
+                # Update or insert team score in PlayerGame
+                cursor.execute(
+                    """INSERT OR REPLACE INTO PlayerGame (LID, matchupID, day, teamID, Score)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (league_id, matchup_id, str(day), team_id, team_score)
+                )
 
 
 def generate_schedule(cursor, league_id):
