@@ -59,7 +59,6 @@
                 <div class="player-grid">
                     {% for player in player_list %}
                     <div class="player-card"
-                         onclick="selectPlayer('{{ player.playerName }}')"
                          ondblclick="openPlayerStats('{{ url_for('player_details', player_id=player.PID) }}')">
                         <p><strong>{{player.playerName}}</strong></p>
                         <p>Position: {{player.position}}</p>

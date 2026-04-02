@@ -229,7 +229,7 @@ def login():
         return redirect(url_for('dashboard'))
     else:
         return "Login failed. Check your credentials."
-    
+
 @app.route('/team/<int:league_id>')
 def team(league_id):
     conn = sqlite3.connect(DB_FILE)
@@ -280,7 +280,7 @@ def player_details(player_id):
     stats = cursor.fetchone()
 
     conn.close()
-    
+
     return render_template("player_details.html", player=player, stats=stats)
 
 if __name__ == '__main__':
