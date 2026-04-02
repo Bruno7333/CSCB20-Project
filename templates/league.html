@@ -52,31 +52,65 @@
                 </div>
             </div>
 
-            <!-- player search -->
-            <form method="GET" action="{{url_for('league', league_id=league.id)}}">
-            <div class="player-search-section">
-                <h3>Search Players</h3>
-                <input type="text" id="playerSearch" class="player-search-input" placeholder="Search player by name" name="search">
-                <div class="choose-position">
-                    <label><input type="checkbox" name="position" value="G"> Guard</label>
-                    <label><input type="checkbox" name="position" value="F"> Forward</label>
-                    <label><input type="checkbox" name="position" value="C"> Center</label>
-                </div>
+            <!-- player search / games section -->
+            {% if league.status == 'game' %}
+                <!-- Game Phase View -->
+                <div class="games-section">
+                    <h3>Your Games</h3>
+                    {% set grouped_games = {} %}
+                    {% for game in games %}
+                        {% if game.week not in grouped_games %}
+                            {% set _ = grouped_games.update({game.week: []}) %}
+                        {% endif %}
+                        {% set _ = grouped_games[game.week].append(game) %}
+                    {% endfor %}
 
-                <div class="player-grid">
-                    {% for player in player_list %}
-                    {% set player_url = url_for('player_details', player_id=player.PID, league_id=league.id) %}
-                    <div class="player-card"
-                         ondblclick="openPlayerStats('{{ player_url }}')">
-                        <p><strong>{{player.playerName}}</strong></p>
-                        <p>Position: {{player.position}}</p>
-                        <p>Score: {{player.prevPlayerScore}}</p>
-                    </div>
+                    {% for week in grouped_games|sort %}
+                        <div class="week-games">
+                            <h4>Week {{ week }}</h4>
+                            {% for game in grouped_games[week] %}
+                                <div class="game-matchup">
+                                    <div class="team1">
+                                        <span class="team-name">{{ game.team1_name }}</span>
+                                        <span class="team-score">{{ game.team1_score or '-' }}</span>
+                                    </div>
+                                    <div class="vs">VS</div>
+                                    <div class="team2">
+                                        <span class="team-score">{{ game.team2_score or '-' }}</span>
+                                        <span class="team-name">{{ game.team2_name }}</span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
                     {% endfor %}
                 </div>
-            </div>
-            <button type="submit" style = "background-color:darkslategray; margin-top: 5px;">Search</button>
-            </form>
+            {% else %}
+                <!-- Player Search -->
+                <form method="GET" action="{{url_for('league', league_id=league.id)}}">
+                <div class="player-search-section">
+                    <h3>Search Players</h3>
+                    <input type="text" id="playerSearch" class="player-search-input" placeholder="Search player by name" name="search">
+                    <div class="choose-position">
+                        <label><input type="checkbox" name="position" value="G"> Guard</label>
+                        <label><input type="checkbox" name="position" value="F"> Forward</label>
+                        <label><input type="checkbox" name="position" value="C"> Center</label>
+                    </div>
+
+                    <div class="player-grid">
+                        {% for player in player_list %}
+                        {% set player_url = url_for('player_details', player_id=player.PID, league_id=league.id) %}
+                        <div class="player-card"
+                             ondblclick="openPlayerStats('{{ player_url }}')">
+                            <p><strong>{{player.playerName}}</strong></p>
+                            <p>Position: {{player.position}}</p>
+                            <p>Score: {{player.prevPlayerScore}}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <button type="submit" style = "background-color:darkslategray; margin-top: 5px;">Search</button>
+                </form>
+            {% endif %}
         </div>
     </div>
 </body>

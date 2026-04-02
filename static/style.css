@@ -273,7 +273,78 @@ form[action*="league"] {
     cursor: pointer;
 }
 
-.choose-position input[type="checkbox"] {
-    width: auto;
+/* Games Section */
+.games-section {
+    flex: 1;
+    width: 100%;
+    box-sizing: border-box;
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+.games-section h3 {
+    margin-top: 0;
+}
+
+.week-games {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+}
+
+.week-games h4 {
+    margin: 0.5rem 0 1rem 0;
+    color: #333;
+    font-size: 1rem;
+}
+
+.game-matchup {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f9f9f9;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+    border: 1px solid #eee;
+}
+
+.team1, .team2 {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+}
+
+.team1 {
+    text-align: right;
+    padding-right: 1rem;
+}
+
+.team2 {
+    text-align: left;
+    padding-left: 1rem;
+}
+
+.team-name {
+    font-weight: bold;
+    font-size: 0.95rem;
+    color: #333;
+}
+
+.team-score {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: #1976d2;
+    margin-top: 0.25rem;
+}
+
+.vs {
+    margin: 0 1rem;
+    color: #999;
+    font-weight: bold;
+    font-size: 0.85rem;
 }
 

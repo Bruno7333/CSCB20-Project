@@ -59,6 +59,24 @@ def league(league_id):
         if current_turn_team_id is None and league_data['status'] != 'final':
             conn.commit() # Status was updated to final inside get_current_draft_turn
 
+    # Get games for game phase
+    games = []
+    if league_data and league_data['status'] == 'game':
+        cursor.execute(
+            """SELECT ps.matchupID, ps.week, ps.T1, ps.T2,
+                      pt1.teamName as team1_name, pt2.teamName as team2_name,
+                      pg1.Score as team1_score, pg2.Score as team2_score
+               FROM PlayerSchedule ps
+               LEFT JOIN PlayerTeam pt1 ON ps.T1 = pt1.teamID
+               LEFT JOIN PlayerTeam pt2 ON ps.T2 = pt2.teamID
+               LEFT JOIN PlayerGame pg1 ON ps.LID = pg1.LID AND ps.matchupID = pg1.matchupID AND ps.T1 = pg1.teamID
+               LEFT JOIN PlayerGame pg2 ON ps.LID = pg2.LID AND ps.matchupID = pg2.matchupID AND ps.T2 = pg2.teamID
+               WHERE ps.LID = ?
+               ORDER BY ps.week""",
+            (league_id,)
+        )
+        games = cursor.fetchall()
+
     search = request.args.get('search', '')
     positions = request.args.getlist('position')
 
@@ -85,7 +103,7 @@ def league(league_id):
         return redirect(url_for('dashboard'))
 
     return render_template("league.html", league=league_data, members=members,
-                           player_list=player_list, current_turn=current_turn_team_id)
+                           player_list=player_list, current_turn=current_turn_team_id, games=games)
 
 @app.route("/start_league/<int:league_id>", methods=['POST'])
 def start_league(league_id):
@@ -390,6 +408,49 @@ def draft_player(league_id, player_id, team_id):
     return redirect(url_for('league', league_id=league_id))
 
 
+# Generate schedule for league when draft ends
+def generate_schedule(cursor, league_id):
+    # Get all teams
+    cursor.execute("SELECT teamID FROM PlayerTeam WHERE LID = ?", (league_id,))
+    teams = [row[0] for row in cursor.fetchall()]
+    num_teams = len(teams)
+
+    if num_teams < 2:
+        return
+
+    matchup_id = 1
+    matchups = []
+
+    # Round-robin scheduling
+    if num_teams % 2 == 1:
+        # Odd number of teams - add a bye team
+        teams.append(None)
+        num_teams += 1
+
+    # Generate round-robin schedule using circular method
+    for round_num in range(num_teams - 1):
+        # Create pairs for this round
+        temp_teams = teams[:]
+
+        for i in range(num_teams // 2):
+            team1 = temp_teams[i]
+            team2 = temp_teams[num_teams - 1 - i]
+
+            if team1 is not None and team2 is not None:
+                matchups.append((matchup_id, league_id, round_num + 1, team1, team2))
+                matchup_id += 1
+
+        # Rotate teams for next round (keep first team fixed)
+        teams = [teams[0]] + teams[1:][::-1]
+
+    # Insert all matchups into database
+    for matchup in matchups:
+        cursor.execute(
+            "INSERT INTO PlayerSchedule (matchupID, LID, week, T1, T2) VALUES (?, ?, ?, ?, ?)",
+            matchup
+        )
+
+
 #helper function for draft
 def get_current_draft_turn(cursor, league_id):
     # get players drafted
@@ -403,6 +464,7 @@ def get_current_draft_turn(cursor, league_id):
     # check if still draft
     if total_picks >= (num_teams * 10):
         cursor.execute("UPDATE PlayerLeague SET status = 'game' WHERE LID = ?", (league_id,))
+        generate_schedule(cursor, league_id)
         return None
 
     current_round = (total_picks // num_teams) + 1
