@@ -91,6 +91,7 @@ def start_league(league_id):
         "SELECT 1 FROM PlayerLeague WHERE LID = ? AND ownerAccount = ?",
         (league_id, owner_id)
     )
+
     if cursor.fetchone():
         cursor.execute(
             "UPDATE PlayerLeague SET status = 'started' WHERE LID = ?",
@@ -268,9 +269,13 @@ def player_details(player_id):
 
     # Get player info
     cursor.execute("""
-        SELECT p.playerName, p.position, t.teamname, p.prevPlayerScore
+        SELECT p.playerName, p.position, t.teamname, p.prevPlayerScore,
+               pt.teamName as fantasy_team, pl.leagueName
         FROM NBAPlayer p
         LEFT JOIN NBATeam t ON p.TID = t.TID
+        LEFT JOIN PlayerAthlete pa ON p.PID = pa.PID
+        LEFT JOIN PlayerTeam pt ON pa.teamID = pt.teamID
+        LEFT JOIN PlayerLeague pl ON pa.LID = pl.LID
         WHERE p.PID = ?
     """, (player_id,))
     player = cursor.fetchone()

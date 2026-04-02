@@ -29,7 +29,8 @@
 <body style="display: block; height: auto;">
     <div class="player-info-container">
         <h1>{{ player.playerName }}</h1>
-        <p><strong>Team:</strong> {{ player.teamname or 'N/A' }}</p>
+        <p><strong>NBA Team:</strong> {{ player.teamname or 'N/A' }}</p>
+        <p><strong>Fantasy Team:</strong> {{ player.fantasy_team or 'Free Agent' }} {% if player.leagueName %}({{ player.leagueName }}){% endif %}</p>
         <p><strong>Position:</strong> {{ player.position }}</p>
         <p><strong>Previous Season Score:</strong> {{ player.prevPlayerScore }}</p>
 
@@ -61,7 +62,6 @@
         {% else %}
         <p>No detailed statistics available for this player.</p>
         {% endif %}
-
     </div>
 </body>
 </html>
