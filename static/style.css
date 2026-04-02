@@ -4,7 +4,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100vh;
+    min-height: 100vh;
     margin: 0;
 }
 
@@ -122,7 +122,8 @@ hr {
 
 /* League */
 .league-container {
-    padding: 2rem;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
     width: 100%;
     max-width: 1200px;
     margin: 0 auto;
@@ -252,3 +253,22 @@ form[action*="league"] {
 .player-search-input {
     margin-bottom: 0;
 }
+
+.choose-position {
+    display: flex;
+    gap: 1rem;
+    margin: 1rem 0;
+    align-items: center;
+}
+
+.choose-position label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    cursor: pointer;
+}
+
+.choose-position input[type="checkbox"] {
+    width: auto;
+}
+

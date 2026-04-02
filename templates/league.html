@@ -25,7 +25,9 @@
 
             <div class="header-things">
                 {% if league.status == 'initial' and session.get('user_id') == league.ownerAccount %}
+                    <form action="{{ url_for('start_league', league_id=league.id) }}" method="POST">
                         <button type="submit" class="start-btn">Start League</button>
+                    </form>
                 {% endif %}
                 <a href="{{ url_for('dashboard') }}" class="dashboard-link">To Dashboard</a>
             </div>
@@ -37,9 +39,12 @@
                 <h3>League Members</h3>
                 <div class="member-list">
                     {% for member in members %}
-                        <div class="member-item">
+                        <div class="member-item {% if current_turn and member.teamID == current_turn %}current-turn{% endif %}">
                             <span><strong>{{ member.name }}</strong></span>
                             <span class="member-team">{{ member.team_name }}</span>
+                            {% if current_turn and member.teamID == current_turn %}
+                                <span class="turn-indicator" style = "color:red">IS DRAFTING</span>
+                            {% endif %}
                         </div>
                     {% endfor %}
                 </div>
@@ -67,7 +72,7 @@
                     {% endfor %}
                 </div>
             </div>
-            <button type="submit">Search</button>
+            <button type="submit" style = "background-color:darkslategray; margin-top: 5px;">Search</button>
             </form>
         </div>
     </div>

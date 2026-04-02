@@ -37,20 +37,27 @@ def league(league_id):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute(
-        """SELECT LID as id, leagueName, status, ownerAccount
+        """SELECT LID as id, leagueName, status, ownerAccount, draftType
             FROM PlayerLeague
             WHERE LID = ?""",
         (league_id,)
         )
     league_data = cursor.fetchone()
     cursor.execute(
-        """SELECT pt.teamName as team_name, pa.username as name
+        """SELECT pt.teamID, pt.teamName as team_name, pa.username as name
             FROM PlayerTeam pt
             JOIN PlayerAccount pa on pt.accountID = pa.accountID
             WHERE pt.LID = ?""",
         (league_id,)
         )
     members = cursor.fetchall()
+
+    # Draft Turn Logic
+    current_turn_team_id = None
+    if league_data and league_data['status'] == 'started':
+        current_turn_team_id = get_current_draft_turn(cursor, league_id)
+        if current_turn_team_id is None and league_data['status'] != 'final':
+            conn.commit() # Status was updated to final inside get_current_draft_turn
 
     search = request.args.get('search', '')
     positions = request.args.getlist('position')
@@ -77,7 +84,8 @@ def league(league_id):
     if league_data is None:
         return redirect(url_for('dashboard'))
 
-    return render_template("league.html", league=league_data, members=members, player_list=player_list)
+    return render_template("league.html", league=league_data, members=members,
+                           player_list=player_list, current_turn=current_turn_team_id)
 
 @app.route("/start_league/<int:league_id>", methods=['POST'])
 def start_league(league_id):
@@ -93,6 +101,19 @@ def start_league(league_id):
     )
 
     if cursor.fetchone():
+        # get teams
+        cursor.execute("SELECT teamID FROM PlayerTeam WHERE LID = ?", (league_id,))
+        teams = [row[0] for row in cursor.fetchall()]
+        # randomize
+        random.shuffle(teams)
+
+        # Save to table
+        for index, team_id in enumerate(teams):
+            cursor.execute(
+                "INSERT INTO DraftOrder (LID, teamID, pickOrder) VALUES (?, ?, ?)",
+                (league_id, team_id, index + 1)
+            )
+
         cursor.execute(
             "UPDATE PlayerLeague SET status = 'started' WHERE LID = ?",
             (league_id,)
@@ -255,6 +276,7 @@ def team(league_id):
     conn.close()
     return render_template("team.html", players = players)
 
+# for a game
 def compute_player_score(stats):
     if not stats:
         return 0
@@ -287,6 +309,44 @@ def player_details(player_id):
     conn.close()
 
     return render_template("player_details.html", player=player, stats=stats)
+
+
+#helper function for draft
+def get_current_draft_turn(cursor, league_id):
+    # get players drafted
+    cursor.execute("SELECT COUNT(*) FROM PlayerAthlete WHERE LID = ?", (league_id,))
+    total_picks = cursor.fetchone()[0]
+
+    # get number of teams
+    cursor.execute("SELECT COUNT(*) FROM PlayerTeam WHERE LID = ?", (league_id,))
+    num_teams = cursor.fetchone()[0]
+
+    # check if still draft
+    if total_picks >= (num_teams * 10):
+        cursor.execute("UPDATE PlayerLeague SET status = 'final' WHERE LID = ?", (league_id,))
+        return None
+
+    current_round = (total_picks // num_teams) + 1
+    pick_in_round = (total_picks % num_teams) + 1
+
+    # get draft type
+    cursor.execute("SELECT draftType FROM PlayerLeague WHERE LID = ?", (league_id,))
+    draft_type = cursor.fetchone()[0]
+
+    # snake
+    if draft_type == 'snake' and current_round % 2 == 0:
+        target_pick_order = num_teams - pick_in_round + 1
+    else:
+        target_pick_order = pick_in_round
+
+    # order
+    cursor.execute(
+        "SELECT teamID FROM DraftOrder WHERE LID = ? AND pickOrder = ?",
+        (league_id, target_pick_order)
+    )
+    pick = cursor.fetchone()
+    return pick[0] if pick else None
+
 
 if __name__ == '__main__':
     init_db()
