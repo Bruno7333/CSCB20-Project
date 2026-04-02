@@ -340,7 +340,7 @@ def team(league_id):
     cursor = conn.cursor()
     user_id = session.get("user_id")
 
-    query = """SELECT nba.playerName, nba.position, nba.PID
+    query = """SELECT nba.playerName, nba.position, nba.PID, pa.active
             FROM NBAPlayer nba
             JOIN PlayerAthlete pa
             ON nba.PID = pa.PID
@@ -364,8 +364,64 @@ def team(league_id):
         })
 
     conn.close()
-    return render_template("team.html", players=players)
+    return render_template("team.html", players=players, league_id=league_id)
 
+@app.route('/set_active/<int:league_id>', methods=['POST'])
+def set_active(league_id):
+    user_id = session.get('user_id')
+    active_pids = request.form.getlist('active_pid')
+
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    single_pos = []
+    multi_pos = []
+
+    for pid in active_pids:
+        query ="SELECT position FROM NBAPlayer WHERE PID = ?"
+        cursor.execute(query, (pid,))
+        position = cursor.fetchone()[0]
+        if '/' in position:
+            multi_pos.append((pid, position.split('/')))
+        else:
+            single_pos.append((pid, position))
+    
+    slots = {'F': 2, 'G': 2, 'C':1}
+    for pid, pos in single_pos:
+        if slots[pos] > 0:
+            slots[pos] -= 1
+        else:
+            conn.close()
+            return redirect(url_for('team', league_id=league_id))
+    
+    for pid, positions in multi_pos:
+        assigned = False
+        for pos in positions:
+            if slots[pos] > 0:
+                slots[pos] -= 1
+                assigned = True
+                break
+        if not assigned:
+            conn.close()
+            return redirect(url_for('team', league_id=league_id))
+        
+    query = "SELECT teamID FROM PlayerTeam WHERE LID = ? AND accountID = ?"
+    cursor.execute(query, (league_id, user_id))
+    my_team_id = cursor.fetchone()[0]
+    
+    query = "UPDATE PlayerAthlete SET active = 0 WHERE teamID = ? AND LID = ?"
+    cursor.execute(query, (my_team_id, league_id))
+
+    query = "UPDATE PlayerAthlete SET active = 1 WHERE PID = ? AND LID = ?"
+    for pid in active_pids:
+        cursor.execute(query, (pid, league_id))
+
+    conn.commit()
+    conn.close()
+    return redirect(url_for('team', league_id=league_id))
+
+        
 
 
 @app.route("/player/<int:player_id>")
@@ -467,7 +523,7 @@ def trade(league_id):
     my_players = cursor.fetchall()
 
     query3 ="""SELECT pt.teamID, pt.teamName as team_name
-            FROM PlayerTeam pt WHERE pt.LID = ? AND pt.teamId != ?
+            FROM PlayerTeam pt WHERE pt.LID = ? AND pt.teamID != ?
             """
     cursor.execute(query3, (league_id, my_team_id))
     members = cursor.fetchall()
@@ -486,7 +542,7 @@ def trade(league_id):
                 WHERE pa.teamID = ? AND pa.LID = ?
                 """
         cursor.execute(query5, (target_team_id, league_id))
-        other_players = cursor.fetchall
+        other_players = cursor.fetchall()
 
     conn.close()
 

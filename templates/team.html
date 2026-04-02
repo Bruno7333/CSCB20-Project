@@ -3,22 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Team - temp</title>
+    <title>Your Team</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="league-container">
-        Players on your team:
-        <div class="league-header">
-            {% for player in players %}
-                <p>{{player.playerName}}</p>
-                <p>{{player.position}}</p>
+        <h2>Players on your team:</h2>
 
-            {% endfor %}
+        <form action="{{ url_for('set_active', league_id=league_id) }}" method="POST">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Position</th>
+                        <th>Active</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for player in players %}
+                    <tr>
+                        <td>{{ player.playerName }}</td>
+                        <td>{{ player.position }}</td>
+                        <td>
+                            <input type="checkbox" name="active_pid" value="{{ player.PID }}"
+                                {% if player.active %}checked{% endif %}>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
 
-            test-2
-        </div>
+            <button type="submit">Save Active Roster</button>
+        </form>
     </div>
-    
 </body>
 </html>
