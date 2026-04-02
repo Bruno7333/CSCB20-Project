@@ -246,14 +246,14 @@ def team(league_id):
                 FROM PlayerTeam
                 WHERE LID = ?
                 AND accountID = ?
-            ) 
+            )
             AND pa.LID = ?
                 """
     cursor.execute(query, (league_id, user_id, league_id))
     players = cursor.fetchall()
     conn.close()
     return render_template("team.html", players = players)
-    
+
 def compute_player_score(stats):
     if not stats:
         return 0
