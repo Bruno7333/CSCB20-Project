@@ -261,5 +261,189 @@ def add_sample_scores(cursor, league_id, day):
             )
 
 
+def create_scenario_leagues():
+    """Create 3 scenario leagues (10 teams each):
+      11111111 – Hoops Dynasty      : pre-draft  (teams joined, draft not started)
+      22222222 – Final Pick League  : mid-draft  (99/100 picks done, last team needs 1 more)
+      33333333 – Season Opener      : day-1 game (all 100 picks done, season just started)
+    """
+    conn = sqlite3.connect('./SQLite/nba.db')
+    cursor = conn.cursor()
+
+    try:
+        # ── Clean up any prior run ──────────────────────────────────────────────
+        for lid in (11111111, 22222222, 33333333):
+            cursor.execute("DELETE FROM AthleteGame    WHERE LID = ?", (lid,))
+            cursor.execute("DELETE FROM PlayerGame     WHERE LID = ?", (lid,))
+            cursor.execute("DELETE FROM PlayerSchedule WHERE LID = ?", (lid,))
+            cursor.execute("DELETE FROM PlayerAthlete  WHERE LID = ?", (lid,))
+            cursor.execute("DELETE FROM DraftOrder     WHERE LID = ?", (lid,))
+            cursor.execute("DELETE FROM PlayerTeam     WHERE LID = ?", (lid,))
+            cursor.execute("DELETE FROM PlayerLeague   WHERE LID = ?", (lid,))
+        conn.commit()
+
+        # ── 10 shared users across all 3 leagues ───────────────────────────────
+        team_names = [
+            ("team01_nba", "team01@nba.test", "password123", "Airball Avengers"),
+            ("team02_nba", "team02@nba.test", "password123", "Bucket Brigade"),
+            ("team03_nba", "team03@nba.test", "password123", "Court Jesters"),
+            ("team04_nba", "team04@nba.test", "password123", "Dunk Dynasty"),
+            ("team05_nba", "team05@nba.test", "password123", "Elbow Elites"),
+            ("team06_nba", "team06@nba.test", "password123", "Fast Break FC"),
+            ("team07_nba", "team07@nba.test", "password123", "Glass Eaters"),
+            ("team08_nba", "team08@nba.test", "password123", "Hardwood Heroes"),
+            ("team09_nba", "team09@nba.test", "password123", "Iso Kings"),
+            ("team10_nba", "team10@nba.test", "password123", "Jump Ball Giants"),
+        ]
+
+        for username, email, password, _ in team_names:
+            cursor.execute(
+                "INSERT OR IGNORE INTO PlayerAccount (username, email, password) VALUES (?, ?, ?)",
+                (username, email, password)
+            )
+        conn.commit()
+
+        def get_uid(username):
+            cursor.execute("SELECT accountID FROM PlayerAccount WHERE username = ?", (username,))
+            return cursor.fetchone()[0]
+
+        user_ids = [get_uid(row[0]) for row in team_names]
+        fantasy_team_names = [row[3] for row in team_names]
+
+        # ── Grab NBA player pools (non-overlapping blocks of 100) ──────────────
+        cursor.execute("SELECT PID FROM NBAPlayer ORDER BY PID")
+        all_pids = [row[0] for row in cursor.fetchall()]
+        pool_draft = all_pids[0:100]    # for league 2 (99 picks)
+        pool_game  = all_pids[100:200]  # for league 3 (100 picks)
+
+        # ─────────────────────────────────────────────────────────────────────
+        # LEAGUE 1 : Pre-draft — teams joined, no draft order set
+        # ─────────────────────────────────────────────────────────────────────
+        cursor.execute(
+            "INSERT INTO PlayerLeague (LID, leagueName, draftType, ownerAccount, status, current_day) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (11111111, "Hoops Dynasty", "snake", user_ids[0], "initial", 0)
+        )
+        for i, uid in enumerate(user_ids):
+            cursor.execute(
+                "INSERT INTO PlayerTeam (LID, accountID, teamName) VALUES (?, ?, ?)",
+                (11111111, uid, fantasy_team_names[i])
+            )
+        # No DraftOrder — owner hasn't pressed "Start Draft" yet
+
+        # ─────────────────────────────────────────────────────────────────────
+        # LEAGUE 2 : Mid-draft — 99 of 100 picks done (snake, 10 teams)
+        #   Snake pick sequence with 10 teams:
+        #     R1 (odd)  : po1..po10
+        #     R2 (even) : po10..po1
+        #     … 10 rounds total; last pick (#100) belongs to po1
+        #   After 99 picks: po1 has 9 players, everyone else has 10.
+        # ─────────────────────────────────────────────────────────────────────
+        cursor.execute(
+            "INSERT INTO PlayerLeague (LID, leagueName, draftType, ownerAccount, status, current_day) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (22222222, "Final Pick League", "snake", user_ids[0], "started", 0)
+        )
+
+        l2_team_ids = []
+        for i, uid in enumerate(user_ids):
+            cursor.execute(
+                "INSERT INTO PlayerTeam (LID, accountID, teamName) VALUES (?, ?, ?)",
+                (22222222, uid, fantasy_team_names[i])
+            )
+            cursor.execute(
+                "SELECT teamID FROM PlayerTeam WHERE LID = ? AND accountID = ? AND teamName = ?",
+                (22222222, uid, fantasy_team_names[i])
+            )
+            l2_team_ids.append(cursor.fetchone()[0])
+
+        num_teams = len(l2_team_ids)
+        # DraftOrder: team_ids[0] → pickOrder 1, …, team_ids[9] → pickOrder 10
+        for i, tid in enumerate(l2_team_ids):
+            cursor.execute(
+                "INSERT INTO DraftOrder (LID, teamID, pickOrder) VALUES (?, ?, ?)",
+                (22222222, tid, i + 1)
+            )
+        po_to_tid = {i + 1: l2_team_ids[i] for i in range(num_teams)}
+
+        # Simulate 99 picks using the same logic as get_current_draft_turn
+        for pick_num in range(99):
+            current_round  = (pick_num // num_teams) + 1
+            pick_in_round  = (pick_num % num_teams) + 1
+            # Snake: reverse pick order on even rounds
+            if current_round % 2 == 0:
+                target_po = num_teams - pick_in_round + 1
+            else:
+                target_po = pick_in_round
+            tid = po_to_tid[target_po]
+            pid = pool_draft[pick_num]
+            # active=0 during draft (set_active is called after draft completes)
+            cursor.execute(
+                "INSERT INTO PlayerAthlete (LID, PID, teamID, active) VALUES (?, ?, ?, ?)",
+                (22222222, pid, tid, 0)
+            )
+
+        # ─────────────────────────────────────────────────────────────────────
+        # LEAGUE 3 : Day-1 game — all 100 picks done, season just started
+        # ─────────────────────────────────────────────────────────────────────
+        cursor.execute(
+            "INSERT INTO PlayerLeague (LID, leagueName, draftType, ownerAccount, status, current_day) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (33333333, "Season Opener", "standard", user_ids[0], "game", 1)
+        )
+
+        l3_team_ids = []
+        for i, uid in enumerate(user_ids):
+            cursor.execute(
+                "INSERT INTO PlayerTeam (LID, accountID, teamName) VALUES (?, ?, ?)",
+                (33333333, uid, fantasy_team_names[i])
+            )
+            cursor.execute(
+                "SELECT teamID FROM PlayerTeam WHERE LID = ? AND accountID = ? AND teamName = ?",
+                (33333333, uid, fantasy_team_names[i])
+            )
+            l3_team_ids.append(cursor.fetchone()[0])
+
+        for i, tid in enumerate(l3_team_ids):
+            cursor.execute(
+                "INSERT INTO DraftOrder (LID, teamID, pickOrder) VALUES (?, ?, ?)",
+                (33333333, tid, i + 1)
+            )
+
+        # 10 players per team — first 5 active, last 5 bench
+        player_idx = 0
+        for tid in l3_team_ids:
+            for j in range(10):
+                active = 1 if j < 5 else 0
+                cursor.execute(
+                    "INSERT INTO PlayerAthlete (LID, PID, teamID, active) VALUES (?, ?, ?, ?)",
+                    (33333333, pool_game[player_idx], tid, active)
+                )
+                player_idx += 1
+
+        # Round-robin schedule (uses the same helper already in this file)
+        generate_round_robin_schedule(cursor, 33333333, l3_team_ids)
+        # No scores yet — day 1, no games advanced
+
+        conn.commit()
+        print("Scenario leagues created successfully!")
+        print()
+        print("  11111111 – Hoops Dynasty      (pre-draft, 10 teams joined)")
+        print("  22222222 – Final Pick League   (draft: 99/100 picks done, po1 picks next)")
+        print("  33333333 – Season Opener       (game phase, day 1, no scores yet)")
+        print()
+        print("Users (shared across all 3 leagues):")
+        for row in team_names:
+            print(f"  username: {row[0]:15s}  password: {row[2]}")
+
+    except Exception as e:
+        print(f"Error creating scenario leagues: {e}")
+        import traceback; traceback.print_exc()
+        conn.rollback()
+    finally:
+        conn.close()
+
+
 if __name__ == "__main__":
     create_test_leagues()
+    create_scenario_leagues()

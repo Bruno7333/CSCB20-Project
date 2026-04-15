@@ -467,6 +467,7 @@ def player_details(player_id):
     league_id = request.args.get('league_id', type=int)
 
     conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
     # Get player info
